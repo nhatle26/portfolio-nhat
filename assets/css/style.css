@@ -176,6 +176,13 @@ body::before {
   body.has-custom-cursor label {
     cursor: none;
   }
+
+  body.has-custom-cursor .cursor-ring.is-hover {
+    width: 52px;
+    height: 52px;
+    border-color: var(--accent-bright);
+    opacity: 0.9;
+  }
 }
 
 /* Scrollbar */
@@ -195,7 +202,11 @@ body::before {
   position: sticky;
   top: 0;
   z-index: 1000;
-  padding: 0.6rem clamp(1rem, 3vw, 2rem);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem clamp(1rem, 4vw, 3rem);
   background: var(--header-bg);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
@@ -1684,6 +1695,15 @@ body::before {
   .main-nav a:hover {
     background: var(--bg-muted);
   }
+
+  .site-header {
+    flex-wrap: wrap;
+  }
+
+  .logo {
+    flex: 1;
+    min-width: 0;
+  }
 }
 
 @media (max-width: 900px) {
@@ -1695,6 +1715,14 @@ body::before {
 
   .about-media {
     order: -1;
+  }
+
+  .site-header {
+    flex-wrap: wrap;
+  }
+
+  .main-nav ul {
+    justify-content: center;
   }
 }
 

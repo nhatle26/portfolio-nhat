@@ -18,12 +18,11 @@
 
       "hero.kicker": "Hello, world",
       "hero.h1": "Xin chào, tôi là",
-      "hero.role": "Lập trình viên web · Sinh viên IT",
+      "hero.role": "Kỹ sư phần mềm · Lập trình web",
       "hero.desc":
-        "Sinh viên năm 2 tại Passerelles Numériques Vietnam. Mình thích xây giao diện gọn, logic rõ ràng và học thêm công nghệ để làm sản phẩm web hữu ích.",
+        "Sinh viên năm 2 tại Passerelles Numériques Vietnam, đam mê phát triển web. Tôi thích giao diện gọn, trải nghiệm tốt và học công nghệ mới.",
       "hero.cv": "Tải CV",
-      "hero.cv_alert":
-        "Cảm ơn bạn đã quan tâm! Link CV có thể bổ sung sau — hiện bạn có thể liên hệ qua email hoặc form bên dưới.",
+      "hero.cv_alert": "Cảm ơn bạn đã quan tâm! CV sẽ được gửi khi có liên kết tải — tạm thời liên hệ qua email hoặc form bên dưới.",
       "hero.projects": "Xem dự án",
       "badge.front": "Frontend & Backend",
       "badge.student": "Sinh viên IT",
