@@ -2,7 +2,7 @@
   "use strict";
 
   const THEME_KEY = "portfolio-theme";
-  const FORM_EMAIL = "nhat.le27@students.passerellesnumeriques.org";
+  const FORM_EMAIL = "leminhnhat1326@gmail.com";
   const FORMSUBMIT_AJAX = "https://formsubmit.co/ajax/" + encodeURIComponent(FORM_EMAIL);
 
   function tr(key, fallback) {
@@ -65,11 +65,38 @@
     });
   }
 
-  const langVi = document.getElementById("langVi");
-  const langEn = document.getElementById("langEn");
-  if (langVi && langEn && typeof PortfolioI18n !== "undefined") {
-    langVi.addEventListener("click", () => PortfolioI18n.apply("vi"));
-    langEn.addEventListener("click", () => PortfolioI18n.apply("en"));
+  const langDropdown = document.getElementById("langDropdown");
+  const langDropdownTrigger = document.getElementById("langDropdownTrigger");
+  const langDropdownPanel = document.getElementById("langDropdownPanel");
+  const langDropdownItems = document.querySelectorAll(".lang-dropdown-item");
+
+  function setLangDropdownOpen(open) {
+    if (!langDropdown || !langDropdownTrigger || !langDropdownPanel) return;
+    langDropdown.classList.toggle("is-open", open);
+    langDropdownPanel.hidden = !open;
+    langDropdownTrigger.setAttribute("aria-expanded", String(open));
+  }
+
+  if (langDropdownTrigger && langDropdownPanel && typeof PortfolioI18n !== "undefined") {
+    langDropdownTrigger.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const next = !langDropdown.classList.contains("is-open");
+      setLangDropdownOpen(next);
+    });
+
+    langDropdownItems.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const l = btn.getAttribute("data-lang");
+        if (l === "en" || l === "vi") {
+          PortfolioI18n.apply(l);
+        }
+      });
+    });
+
+    document.addEventListener("click", () => setLangDropdownOpen(false));
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") setLangDropdownOpen(false);
+    });
   }
 
   /* Mobile nav */
@@ -86,7 +113,7 @@
     document.body.classList.toggle("nav-open", open);
     const icon = navToggle.querySelector("i");
     if (icon) {
-      icon.className = open ? "fas fa-xmark" : "fas fa-bars";
+      icon.className = open ? "ph ph-x" : "ph ph-list";
     }
   }
 
@@ -100,7 +127,7 @@
     window.addEventListener(
       "resize",
       () => {
-        if (window.innerWidth > 768) setNavOpen(false);
+        if (window.innerWidth > 560) setNavOpen(false);
       },
       { passive: true }
     );
@@ -109,11 +136,18 @@
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") setNavOpen(false);
   });
-
+ 
   const btnCv = document.getElementById("btnCv");
   if (btnCv) {
-    btnCv.addEventListener("click", () => {
-      alert(tr("hero.cv_alert"));
+    btnCv.addEventListener("click", (e) => {
+      e.preventDefault(); // Ngăn chặn hành vi mặc định của nút nếu có
+      const cvPath = "CV_FullStack_LeMinhNhat.pdf"; // Đường dẫn tương đối đến file CV
+      const link = document.createElement('a');
+      link.href = cvPath;
+      link.download = 'LeMinhNhat_CV.pdf'; // Tên file sẽ được tải về
+      document.body.appendChild(link); // Thêm link vào body để có thể click
+      link.click(); // Kích hoạt sự kiện click để tải file
+      document.body.removeChild(link); // Xóa link tạm thời sau khi tải
     });
   }
 
@@ -275,27 +309,40 @@
   document.querySelectorAll(".hero-photo img").forEach((img) => markFallback(img, ".hero-photo"));
   document.querySelectorAll(".about-frame img").forEach((img) => markFallback(img, ".about-frame"));
 
-  /* GitHub API + ngôn ngữ theo repo */
+  /* GitHub API + ngôn ngữ theo repo (không hiển thị %) */
   const projectsSection = document.querySelector("[data-github-user]");
   const GITHUB_USER = projectsSection?.dataset.githubUser || "nhatle26";
   const pinnedReposRaw = projectsSection?.dataset.pinnedRepos || "";
-  const pinnedRepoSet = new Set(
-    pinnedReposRaw
+
+  function parsePinnedRepos(raw) {
+    return raw
       .split(",")
-      .map((s) => s.trim().toLowerCase())
+      .map((s) => s.trim())
       .filter(Boolean)
-  );
+      .map((entry) => {
+        if (entry.includes("/")) {
+          const idx = entry.indexOf("/");
+          const owner = entry.slice(0, idx).trim();
+          const repo = entry.slice(idx + 1).trim();
+          if (!owner || !repo) return null;
+          return { owner, repo, key: `${owner}/${repo}`.toLowerCase() };
+        }
+        return { owner: GITHUB_USER, repo: entry, key: `${GITHUB_USER}/${entry}`.toLowerCase() };
+      })
+      .filter(Boolean);
+  }
+
+  const pinnedItems = parsePinnedRepos(pinnedReposRaw);
+  const pinnedRepoSet = new Set(pinnedItems.map((p) => p.key));
 
   const langCache = new Map();
 
-  function formatLangPct(langObj) {
+  function formatLangNames(langObj) {
     if (!langObj || typeof langObj !== "object") return "";
-    const total = Object.values(langObj).reduce((a, b) => a + b, 0);
-    if (!total) return "";
     return Object.entries(langObj)
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([k, v]) => `${k} ${Math.round((v / total) * 100)}%`)
+      .slice(0, 6)
+      .map(([name]) => name)
       .join(" · ");
   }
 
@@ -303,13 +350,15 @@
     const key = `${owner}/${repo}`;
     if (langCache.has(key)) return langCache.get(key);
     try {
-      const r = await fetch(`https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/languages`);
+      const r = await fetch(
+        `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/languages`
+      );
       if (!r.ok) {
         langCache.set(key, null);
         return null;
       }
       const data = await r.json();
-      const s = formatLangPct(data) || null;
+      const s = formatLangNames(data) || null;
       langCache.set(key, s);
       return s;
     } catch {
@@ -318,16 +367,67 @@
     }
   }
 
-  async function fillRepoLanguageElements() {
-    const nodes = document.querySelectorAll(".js-repo-lang");
-    for (const el of nodes) {
-      const owner = el.dataset.owner;
-      const repo = el.dataset.repo;
-      if (!owner || !repo) continue;
-      el.textContent = "…";
-      const s = await fetchLanguagesFormatted(owner, repo);
-      el.textContent = s || "—";
+  function applyLocaleToDocument() {
+    if (typeof PortfolioI18n === "undefined" || !PortfolioI18n.apply) return;
+    const lang = document.documentElement.getAttribute("lang") || "en";
+    PortfolioI18n.apply(lang);
+  }
+
+  async function renderPinnedReposFromGitHub() {
+    const container = document.getElementById("pinnedRepos");
+    if (!container || !pinnedItems.length) {
+      if (container)
+        container.innerHTML = `<p class="repos-status">${escapeHtml(tr("github.empty"))}</p>`;
+      return;
     }
+
+    container.innerHTML = `<p class="repos-status" data-i18n="github.loading_pinned">${escapeHtml(tr("github.loading_pinned"))}</p>`;
+
+    const fragment = document.createDocumentFragment();
+    for (const item of pinnedItems) {
+      let repo;
+      try {
+        const r = await fetch(`https://api.github.com/repos/${encodeURIComponent(item.owner)}/${encodeURIComponent(item.repo)}`);
+        if (!r.ok) throw new Error("repo");
+        repo = await r.json();
+      } catch {
+        const stub = document.createElement("div");
+        stub.className = "repo-card repo-card--pinned";
+        stub.innerHTML = `<span class="repo-card-name">${escapeHtml(item.owner + "/" + item.repo)}</span><p class="repo-card-desc">${escapeHtml(tr("github.error"))}</p>`;
+        fragment.appendChild(stub);
+        continue;
+      }
+
+      const langsRaw = await fetchLanguagesFormatted(item.owner, item.repo);
+      const langsStr = langsRaw
+        ? escapeHtml(langsRaw)
+        : repo.language
+          ? escapeHtml(repo.language)
+          : "—";
+      const desc = repo.description ? escapeHtml(repo.description) : escapeHtml(tr("github.no_desc"));
+      const badge = (repo.language || item.repo).substring(0, 4).toUpperCase();
+      const fullName = escapeHtml(repo.full_name || `${item.owner}/${item.repo}`);
+
+      const a = document.createElement("a");
+      a.href = repo.html_url;
+      a.className = "repo-card repo-card--pinned";
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      a.innerHTML = `
+        <span class="repo-card-badge mono">${escapeHtml(badge)}</span>
+        <span class="repo-card-name">${escapeHtml(repo.name)}</span>
+        <p class="repo-card-desc">${desc}</p>
+        <div class="repo-lang-row"><span class="repo-lang-key" data-i18n="github.langs">${escapeHtml(tr("github.langs"))}</span> <span class="repo-lang-val mono">${langsStr}</span></div>
+        <div class="repo-card-meta">
+          <span><i class="ph ph-github-logo"></i> ${fullName}</span>
+        </div>
+      `;
+      fragment.appendChild(a);
+    }
+
+    container.innerHTML = "";
+    container.appendChild(fragment);
+    applyLocaleToDocument();
   }
 
   async function loadGitHub() {
@@ -347,11 +447,11 @@
 
       const profile = await profileRes.json();
       const reposAll = reposRes.ok ? await reposRes.json() : [];
-      const repos = reposAll.filter((repo) => !pinnedRepoSet.has(repo.name.toLowerCase()));
+      const repos = reposAll.filter((repo) => !pinnedRepoSet.has((repo.full_name || "").toLowerCase()));
 
       const bio = profile.bio ? escapeHtml(profile.bio) : "—";
       const locationHtml = profile.location
-        ? `<span><i class="fas fa-location-dot"></i> ${escapeHtml(profile.location)}</span>`
+        ? `<span><i class="ph ph-map-pin"></i> ${escapeHtml(profile.location)}</span>`
         : "";
 
       profileEl.innerHTML = `
@@ -362,10 +462,10 @@
           </a>
           <p class="github-bio">${bio}</p>
           <div class="github-meta">
-            <span><i class="fas fa-folder-open"></i> ${Number(profile.public_repos) || 0} ${escapeHtml(tr("github.repos_count"))}</span>
+            <span><i class="ph ph-folder-open"></i> ${Number(profile.public_repos) || 0} ${escapeHtml(tr("github.repos_count"))}</span>
             ${locationHtml}
           </div>
-          <a class="github-open" href="${escapeHtml(profile.html_url)}" target="_blank" rel="noopener noreferrer"><i class="fab fa-github"></i> ${escapeHtml(tr("github.open_btn"))}</a>
+          <a class="github-open" href="${escapeHtml(profile.html_url)}" target="_blank" rel="noopener noreferrer"><i class="ph ph-github-logo"></i> ${escapeHtml(tr("github.open_btn"))}</a>
         </div>
       `;
 
@@ -394,10 +494,10 @@
         a.innerHTML = `
           <span class="repo-card-name">${escapeHtml(repo.name)}</span>
           <p class="repo-card-desc">${desc}</p>
-          <div class="repo-lang-row"><span class="repo-lang-key">${escapeHtml(tr("github.langs"))}</span> <span class="repo-lang-val mono">${langLine}</span></div>
+          <div class="repo-lang-row"><span class="repo-lang-key" data-i18n="github.langs">${escapeHtml(tr("github.langs"))}</span> <span class="repo-lang-val mono">${langLine}</span></div>
           <div class="repo-card-meta">
-            <span><i class="fas fa-code"></i> ${repo.language ? escapeHtml(repo.language) : "—"}</span>
-            <span><i class="fas fa-star"></i> ${repo.stargazers_count}</span>
+            <span><i class="ph ph-code"></i> ${repo.language ? escapeHtml(repo.language) : "—"}</span>
+            <span><i class="ph ph-star"></i> ${repo.stargazers_count}</span>
           </div>
         `;
         fragment.appendChild(a);
@@ -413,7 +513,7 @@
     }
   }
 
-  fillRepoLanguageElements();
+  void renderPinnedReposFromGitHub();
   loadGitHub();
 
   document.addEventListener("localechange", () => {
@@ -423,76 +523,88 @@
     }
   });
 
-  const dot = document.querySelector(".cursor-dot");
-  const ring = document.querySelector(".cursor-ring");
-  const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const finePointer = window.matchMedia("(pointer: fine)").matches;
+  /* Typewriter effect */
+  const typewriterElement = document.getElementById("typewriter");
+  if (typewriterElement) {
+    const text = "Fullstack Developer";
+    let index = 0;
+    let isDeleting = false;
+    let typingSpeed = 100;
 
-  if (dot && ring && finePointer && !prefersReducedMotion) {
-    document.body.classList.add("has-custom-cursor");
-
-    let mouseX = -100;
-    let mouseY = -100;
-    let ringX = -100;
-    let ringY = -100;
-    let rafRunning = false;
-
-    const interactiveSelector =
-      'a, button, [role="button"], input, textarea, .magnetic, .skill-toggle-btn, .skill-tile, .repo-card, .lang-btn, .nav-toggle';
-
-    function frame() {
-      ringX += (mouseX - ringX) * 0.2;
-      ringY += (mouseY - ringY) * 0.2;
-      ring.style.transform = `translate(${ringX}px, ${ringY}px) translate(-50%, -50%)`;
-
-      const dist = Math.hypot(mouseX - ringX, mouseY - ringY);
-      if (dist > 0.4) {
-        requestAnimationFrame(frame);
-      } else {
-        rafRunning = false;
+    function typeWriter() {
+      if (!isDeleting && index <= text.length) {
+        typewriterElement.textContent = text.substring(0, index);
+        index++;
+        typingSpeed = 100;
+        if (index > text.length) {
+          isDeleting = true;
+          typingSpeed = 2000; // Pause at the end
+        }
+      } else if (isDeleting && index >= 0) {
+        typewriterElement.textContent = text.substring(0, index);
+        index--;
+        typingSpeed = 50;
+        if (index < 0) {
+          isDeleting = false;
+          typingSpeed = 500; // Pause before typing again
+        }
       }
+      setTimeout(typeWriter, typingSpeed);
     }
+    setTimeout(typeWriter, 1000);
+  }
 
-    document.addEventListener(
-      "mousemove",
-      (e) => {
-        mouseX = e.clientX;
-        mouseY = e.clientY;
-        dot.style.transform = `translate(${mouseX}px, ${mouseY}px) translate(-50%, -50%)`;
-        const el = e.target.closest(interactiveSelector);
-        if (el) {
-          ring.classList.add("is-hover");
-        } else {
-          ring.classList.remove("is-hover");
-        }
-        if (!rafRunning) {
-          rafRunning = true;
-          requestAnimationFrame(frame);
-        }
-      },
-      { passive: true }
-    );
+  /* Particle Cursor Trail */
+  const canvas = document.getElementById('cursorTrail');
+  if (canvas) {
+    const ctx = canvas.getContext('2d');
+    let width = canvas.width = window.innerWidth;
+    let height = canvas.height = window.innerHeight;
+    
+    let particles = [];
+    let mouse = { x: -1000, y: -1000 };
 
-    document.addEventListener(
-      "mouseleave",
-      () => {
-        ring.classList.remove("is-hover");
-      },
-      { passive: true }
-    );
-
-    const magnetics = document.querySelectorAll(".magnetic");
-    magnetics.forEach((el) => {
-      el.addEventListener("mousemove", (e) => {
-        const rect = el.getBoundingClientRect();
-        const x = e.clientX - rect.left - rect.width / 2;
-        const y = e.clientY - rect.top - rect.height / 2;
-        const strength = 0.14;
-        el.style.transform = `translate(${x * strength}px, ${y * strength}px)`;
-      });
-      el.addEventListener("mouseleave", () => {
-        el.style.transform = "";
-      });
+    window.addEventListener('resize', () => {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
     });
+
+    document.addEventListener('mousemove', (e) => {
+      mouse.x = e.clientX;
+      mouse.y = e.clientY;
+      for (let i = 0; i < 2; i++) {
+        particles.push({
+          x: mouse.x,
+          y: mouse.y,
+          size: Math.random() * 4 + 1,
+          speedX: Math.random() * 2 - 1,
+          speedY: Math.random() * 2 - 1,
+          life: 1
+        });
+      }
+    });
+
+    function animateParticles() {
+      ctx.clearRect(0, 0, width, height);
+      for (let i = 0; i < particles.length; i++) {
+        let p = particles[i];
+        ctx.fillStyle = `rgba(244, 114, 182, ${p.life})`;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+
+        p.x += p.speedX;
+        p.y += p.speedY;
+        p.size *= 0.95;
+        p.life -= 0.02;
+
+        if (p.life <= 0) {
+          particles.splice(i, 1);
+          i--;
+        }
+      }
+      requestAnimationFrame(animateParticles);
+    }
+    animateParticles();
   }
 })();
