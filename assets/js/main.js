@@ -301,6 +301,12 @@
   function markFallback(img, containerSelector) {
     const wrap = img.closest(containerSelector);
     if (!wrap) return;
+    
+    // Kiểm tra nếu ảnh đã lỗi trước khi script này kịp chạy
+    if (img.complete && (img.naturalWidth === 0 || img.naturalHeight === 0)) {
+      wrap.classList.add("is-fallback");
+    }
+
     img.addEventListener("error", () => {
       wrap.classList.add("is-fallback");
     });
@@ -373,94 +379,30 @@
     PortfolioI18n.apply(lang);
   }
 
-  async function renderPinnedReposFromGitHub() {
-    const container = document.getElementById("pinnedRepos");
-    if (!container || !pinnedItems.length) {
-      if (container)
-        container.innerHTML = `<p class="repos-status">${escapeHtml(tr("github.empty"))}</p>`;
-      return;
-    }
-
-    container.innerHTML = `<p class="repos-status" data-i18n="github.loading_pinned">${escapeHtml(tr("github.loading_pinned"))}</p>`;
-
-    const fragment = document.createDocumentFragment();
-    for (const item of pinnedItems) {
-      let repo;
-      try {
-        const r = await fetch(`https://api.github.com/repos/${encodeURIComponent(item.owner)}/${encodeURIComponent(item.repo)}`);
-        if (!r.ok) throw new Error("repo");
-        repo = await r.json();
-      } catch {
-        const stub = document.createElement("div");
-        stub.className = "repo-card repo-card--pinned";
-        stub.innerHTML = `<span class="repo-card-name">${escapeHtml(item.owner + "/" + item.repo)}</span><p class="repo-card-desc">${escapeHtml(tr("github.error"))}</p>`;
-        fragment.appendChild(stub);
-        continue;
-      }
-
-      const langsRaw = await fetchLanguagesFormatted(item.owner, item.repo);
-      const langsStr = langsRaw
-        ? escapeHtml(langsRaw)
-        : repo.language
-          ? escapeHtml(repo.language)
-          : "—";
-      const desc = repo.description ? escapeHtml(repo.description) : escapeHtml(tr("github.no_desc"));
-      const badge = (repo.language || item.repo).substring(0, 4).toUpperCase();
-      const fullName = escapeHtml(repo.full_name || `${item.owner}/${item.repo}`);
-
-      const a = document.createElement("a");
-      a.href = repo.html_url;
-      a.className = "repo-card repo-card--pinned";
-      a.target = "_blank";
-      a.rel = "noopener noreferrer";
-      a.innerHTML = `
-        <span class="repo-card-badge mono">${escapeHtml(badge)}</span>
-        <span class="repo-card-name">${escapeHtml(repo.name)}</span>
-        <p class="repo-card-desc">${desc}</p>
-        <div class="repo-lang-row"><span class="repo-lang-key" data-i18n="github.langs">${escapeHtml(tr("github.langs"))}</span> <span class="repo-lang-val mono">${langsStr}</span></div>
-        <div class="repo-card-meta">
-          <span><i class="ph ph-github-logo"></i> ${fullName}</span>
-        </div>
-      `;
-      fragment.appendChild(a);
-    }
-
-    container.innerHTML = "";
-    container.appendChild(fragment);
-    applyLocaleToDocument();
-  }
-
-  async function loadGitHub() {
+  async function loadGitHubData() {
     const profileEl = document.getElementById("githubProfile");
     const reposEl = document.getElementById("githubRepos");
-    if (!profileEl || !reposEl) return;
+    const pinnedEl = document.getElementById("pinnedRepos");
+    if (!profileEl || !reposEl || !pinnedEl) return;
 
     try {
-      const [profileRes, reposRes] = await Promise.all([
-        fetch(`https://api.github.com/users/${encodeURIComponent(GITHUB_USER)}`),
-        fetch(
-          `https://api.github.com/users/${encodeURIComponent(GITHUB_USER)}/repos?sort=updated&per_page=20`
-        ),
-      ]);
+      const response = await fetch('assets/data/github-data.json');
+      if (!response.ok) throw new Error("Local data not found");
+      const data = await response.json();
 
-      if (!profileRes.ok) throw new Error("profile");
+      const { profile, pinned, others } = data;
 
-      const profile = await profileRes.json();
-      const reposAll = reposRes.ok ? await reposRes.json() : [];
-      const repos = reposAll.filter((repo) => !pinnedRepoSet.has((repo.full_name || "").toLowerCase()));
-
-      const bio = profile.bio ? escapeHtml(profile.bio) : "—";
+      // Render Profile
       const locationHtml = profile.location
         ? `<span><i class="ph ph-map-pin"></i> ${escapeHtml(profile.location)}</span>`
         : "";
-
       profileEl.innerHTML = `
         <div class="github-profile-inner">
           <a href="${escapeHtml(profile.html_url)}" target="_blank" rel="noopener noreferrer">
             <img class="github-avatar" src="${escapeHtml(profile.avatar_url)}" alt="" width="72" height="72" loading="lazy" decoding="async">
             <p class="github-login" style="margin-top:0.75rem">@${escapeHtml(profile.login)}</p>
           </a>
-          <p class="github-bio">${bio}</p>
+          <p class="github-bio">${profile.bio ? escapeHtml(profile.bio) : "—"}</p>
           <div class="github-meta">
             <span><i class="ph ph-folder-open"></i> ${Number(profile.public_repos) || 0} ${escapeHtml(tr("github.repos_count"))}</span>
             ${locationHtml}
@@ -469,52 +411,48 @@
         </div>
       `;
 
+      // Render Pinned
+      pinnedEl.innerHTML = "";
+      pinned.forEach(repo => {
+        const badge = (repo.language || repo.name).substring(0, 4).toUpperCase();
+        const div = document.createElement("div");
+        div.innerHTML = `
+          <a href="${repo.html_url}" class="repo-card repo-card--pinned" target="_blank" rel="noopener noreferrer">
+            <span class="repo-card-badge mono">${escapeHtml(badge)}</span>
+            <span class="repo-card-name">${escapeHtml(repo.name)}</span>
+            <p class="repo-card-desc">${repo.description ? escapeHtml(repo.description) : escapeHtml(tr("github.no_desc"))}</p>
+            <div class="repo-lang-row"><span class="repo-lang-key" data-i18n="github.langs">${escapeHtml(tr("github.langs"))}</span> <span class="repo-lang-val mono">${escapeHtml(repo.formattedLangs || "—")}</span></div>
+            <div class="repo-card-meta"><span><i class="ph ph-github-logo"></i> ${escapeHtml(repo.full_name)}</span></div>
+          </a>`;
+        pinnedEl.appendChild(div.firstElementChild);
+      });
+
+      // Render Others
       reposEl.innerHTML = "";
-      const fragment = document.createDocumentFragment();
-
-      const items = await Promise.all(
-        repos.map(async (repo) => {
-          const langsStr = await fetchLanguagesFormatted(GITHUB_USER, repo.name);
-          return { repo, langsStr };
-        })
-      );
-
-      items.forEach(({ repo, langsStr }) => {
+      others.forEach(repo => {
         const a = document.createElement("a");
-        a.href = repo.html_url;
-        a.className = "repo-card";
-        a.target = "_blank";
-        a.rel = "noopener noreferrer";
-        const desc = repo.description ? escapeHtml(repo.description) : escapeHtml(tr("github.no_desc"));
-        const langLine = langsStr
-          ? escapeHtml(langsStr)
-          : repo.language
-            ? escapeHtml(repo.language)
-            : "—";
+        a.href = repo.html_url; a.className = "repo-card"; a.target = "_blank"; a.rel = "noopener noreferrer";
         a.innerHTML = `
           <span class="repo-card-name">${escapeHtml(repo.name)}</span>
-          <p class="repo-card-desc">${desc}</p>
-          <div class="repo-lang-row"><span class="repo-lang-key" data-i18n="github.langs">${escapeHtml(tr("github.langs"))}</span> <span class="repo-lang-val mono">${langLine}</span></div>
+          <p class="repo-card-desc">${repo.description ? escapeHtml(repo.description) : escapeHtml(tr("github.no_desc"))}</p>
+          <div class="repo-lang-row"><span class="repo-lang-key" data-i18n="github.langs">${escapeHtml(tr("github.langs"))}</span> <span class="repo-lang-val mono">${escapeHtml(repo.formattedLangs || "—")}</span></div>
           <div class="repo-card-meta">
             <span><i class="ph ph-code"></i> ${repo.language ? escapeHtml(repo.language) : "—"}</span>
             <span><i class="ph ph-star"></i> ${repo.stargazers_count}</span>
-          </div>
-        `;
-        fragment.appendChild(a);
+          </div>`;
+        reposEl.appendChild(a);
       });
-      reposEl.appendChild(fragment);
 
-      if (!repos.length) {
-        reposEl.innerHTML = `<p class="repos-status">${escapeHtml(tr("github.empty"))}</p>`;
-      }
+      applyLocaleToDocument();
     } catch {
+      // Fallback nếu không có file local
+      if (pinnedEl) pinnedEl.innerHTML = `<p class="repos-status">${escapeHtml(tr("github.error"))}</p>`;
       profileEl.innerHTML = `<div class="github-error">${escapeHtml(tr("github.error"))} <a href="https://github.com/${escapeHtml(GITHUB_USER)}" target="_blank" rel="noopener noreferrer">${escapeHtml(tr("github.open_profile"))}</a></div>`;
       reposEl.innerHTML = `<div class="repos-error">${escapeHtml(tr("github.error_repos"))} <a href="https://github.com/${escapeHtml(GITHUB_USER)}?tab=repositories" target="_blank" rel="noopener noreferrer">github.com/${escapeHtml(GITHUB_USER)}</a></div>`;
     }
   }
 
-  void renderPinnedReposFromGitHub();
-  loadGitHub();
+  loadGitHubData();
 
   document.addEventListener("localechange", () => {
     const loading = document.querySelector("#githubRepos .repos-loading");
@@ -526,12 +464,12 @@
   /* Typewriter effect */
   const typewriterElement = document.getElementById("typewriter");
   if (typewriterElement) {
-    const text = "Fullstack Developer";
     let index = 0;
     let isDeleting = false;
     let typingSpeed = 100;
 
     function typeWriter() {
+      const text = tr("hero.role", "Fullstack Developer");
       if (!isDeleting && index <= text.length) {
         typewriterElement.textContent = text.substring(0, index);
         index++;
