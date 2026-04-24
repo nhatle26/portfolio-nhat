@@ -74,7 +74,7 @@ async function main() {
             lastUpdated: new Date().toISOString()
         };
 
-        const dir = path.resolve(__dirname, '../assets/data');
+        const dir = path.resolve(__dirname, 'assets/data');
         if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
         fs.writeFileSync(
