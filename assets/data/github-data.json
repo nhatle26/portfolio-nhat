@@ -561,14 +561,14 @@
       "releases_url": "https://api.github.com/repos/nhatle26/portfolio-nhat/releases{/id}",
       "deployments_url": "https://api.github.com/repos/nhatle26/portfolio-nhat/deployments",
       "created_at": "2026-04-24T16:37:31Z",
-      "updated_at": "2026-07-23T08:35:21Z",
-      "pushed_at": "2026-07-23T08:35:17Z",
+      "updated_at": "2026-07-24T08:32:34Z",
+      "pushed_at": "2026-07-24T08:31:41Z",
       "git_url": "git://github.com/nhatle26/portfolio-nhat.git",
       "ssh_url": "git@github.com:nhatle26/portfolio-nhat.git",
       "clone_url": "https://github.com/nhatle26/portfolio-nhat.git",
       "svn_url": "https://github.com/nhatle26/portfolio-nhat",
       "homepage": "https://portfolio-nhat.vercel.app",
-      "size": 5156,
+      "size": 5157,
       "stargazers_count": 0,
       "watchers_count": 0,
       "language": "JavaScript",
@@ -1055,5 +1055,5 @@
       "formattedLangs": "Python"
     }
   ],
-  "lastUpdated": "2026-07-24T08:31:40.965Z"
+  "lastUpdated": "2026-07-25T08:10:39.199Z"
 }
